@@ -17,6 +17,16 @@ dependencies:
   wifi_connector_flutter: ^0.0.1
 ```
 
+or
+
+```yaml
+dependencies:
+  wifi_connector_flutter:
+    git:
+      url: https://github.com/prbelief/wifi_connector_flutter
+      ref: <TAG VERSION>
+```
+
 ### Android Setup
 
 1. Set the minimum SDK version in your `android/app/build.gradle`:

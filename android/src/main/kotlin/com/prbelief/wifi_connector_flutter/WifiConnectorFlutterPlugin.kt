@@ -28,6 +28,7 @@ class WifiConnectorFlutterPlugin: FlutterPlugin, MethodCallHandler, ActivityAwar
     private lateinit var wifiConnector: WifiConnector
     private val scope = CoroutineScope(Dispatchers.Main)
     private var permissionCallback: ((Boolean) -> Unit)? = null
+    private var isStreamActive = false 
     
     private val requiredPermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
         arrayOf(
@@ -56,10 +57,16 @@ class WifiConnectorFlutterPlugin: FlutterPlugin, MethodCallHandler, ActivityAwar
 
     override fun onMethodCall(@NonNull call: MethodCall, @NonNull result: Result) {
         when (call.method) {
-            "getPlatformVersion" -> {
-                result.success("Android ${Build.VERSION.RELEASE}")
+             "startListeningConnectionChanges" -> {
+                isStreamActive = true
+                result.success(null)
             }
-            
+
+            "stopListeningConnectionChanges" -> {
+                isStreamActive = false
+                result.success(null)
+            }
+
             "connectToWifi" -> {
                 if (!checkPermissions()) {
                     result.error(
@@ -88,7 +95,9 @@ class WifiConnectorFlutterPlugin: FlutterPlugin, MethodCallHandler, ActivityAwar
                             ssid = ssid,
                             password = password
                         ) { isConnected ->
-                            channel.invokeMethod("onConnectionChanged", isConnected)
+                            if (isStreamActive) {
+                               channel.invokeMethod("onConnectionChanged", isConnected)
+                            }
                         }
 
                         connectResult.fold(

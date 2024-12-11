@@ -9,4 +9,12 @@ class WifiConnectionResult {
     this.errorMessage,
     this.errorCode,
   });
+
+  factory WifiConnectionResult.fromMap(Map map) {
+    return WifiConnectionResult(
+      success: map['success'],
+      errorMessage: map['errorMessage'],
+      errorCode: map['errorCode'],
+    );
+  }
 }

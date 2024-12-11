@@ -11,7 +11,8 @@ class MethodChannelWifiConnectorFlutter extends WifiConnectorFlutterPlatform {
   final methodChannel = const MethodChannel('wifi_connector_flutter');
 
   /// Stream controller for connection status updates
-  StreamController<bool>? _connectionStreamController;
+  StreamController<bool>? _streamController;
+  static bool _isListening = false;
 
   @override
   Future<WifiConnectionResult> connectToWifi({
@@ -19,12 +20,17 @@ class MethodChannelWifiConnectorFlutter extends WifiConnectorFlutterPlatform {
     required String password,
   }) async {
     try {
-      final result = await methodChannel.invokeMethod<bool>('connectToWifi', {
+      final result = await methodChannel.invokeMethod<Map>('connectToWifi', {
         'ssid': ssid,
         'password': password,
       });
-
-      return WifiConnectionResult(success: result ?? false);
+      if (result == null) {
+        return WifiConnectionResult(
+          success: false,
+          errorMessage: 'Unknown error',
+        );
+      }
+      return WifiConnectionResult.fromMap(result);
     } on PlatformException catch (e) {
       return WifiConnectionResult(
         success: false,
@@ -64,22 +70,32 @@ class MethodChannelWifiConnectorFlutter extends WifiConnectorFlutterPlatform {
 
   @override
   Stream<bool> get connectionStream {
-    _connectionStreamController ??= StreamController<bool>.broadcast();
+    if (_streamController == null || _streamController!.isClosed) {
+      _streamController = StreamController<bool>.broadcast(
+        onListen: () async {
+          _isListening = true;
+          await methodChannel.invokeMethod('startListeningConnectionChanges');
+        },
+        onCancel: () async {
+          _isListening = false;
+          await methodChannel.invokeMethod('stopListeningConnectionChanges');
+          _streamController?.close();
+          _streamController = null;
+        },
+      );
 
-    methodChannel.setMethodCallHandler((MethodCall call) async {
-      switch (call.method) {
-        case 'onConnectionChanged':
-          _connectionStreamController?.add(call.arguments as bool);
-          break;
-      }
-    });
-
-    return _connectionStreamController!.stream;
+      methodChannel.setMethodCallHandler((call) async {
+        if (call.method == 'onConnectionChanged' && _isListening) {
+          _streamController?.add(call.arguments as bool);
+        }
+      });
+    }
+    return _streamController!.stream;
   }
 
   @override
   void dispose() {
-    _connectionStreamController?.close();
-    _connectionStreamController = null;
+    _streamController?.close();
+    _streamController = null;
   }
 }
